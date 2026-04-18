@@ -1,5 +1,3 @@
-# platform-controller/.github/workflows/create-microservice.yml
-
 name: Create Microservice
 
 on:
@@ -23,9 +21,7 @@ jobs:
       DESCRIPTION:   ${{ fromJson(inputs.port_payload).payload.properties.description }}
       GH_ORG:        KfirErlich
 
-
     steps:
-      # ── Log: Starting ─────────────────────────────────────────
       - name: Log - Start
         uses: port-labs/port-github-action@v1
         with:
@@ -36,45 +32,14 @@ jobs:
           logMessage: "🟡 Starting provisioning for service: ${{ env.SERVICE_NAME }}"
           statusLabel: "Creating repository..."
 
-      # ── Step 1: Create GitHub Repo from Template ───────────────
-
-           # ── DEBUG STEP (temporary, remove after confirming) ──────
-      - name: Debug - Verify Token
-        run: |
-          curl -s \
-            -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
-            https://api.github.com/user \
-            | grep -o '"login":"[^"]*"'
-          # Should print: "login":"KfirErlich"
-
-      # ── ACTUAL REPO CREATION STEP ────────────────────────────
       - name: Create GitHub Repository
         run: |
-          RESPONSE=$(curl -s -w "
-          %{http_code}" -RESPONSE=$(curl -s -w "
-          %{http_code}" -X POST \
-                      -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
-                      -H "Accept: application/vnd.github.v3+json" \
-                      https://api.github.com/user/repos \
-                      -d "{\"name\": \"${{ env.SERVICE_NAME }}\", \"description\": \"${{ env.DESCRIPTION }}\", \"private\": false, \"auto_init\": true}")
-          
-                    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-                    BODY=$(echo "$RESPONSE" | head -n-1)
-          
-                    echo "📨 HTTP Status: $HTTP_CODE"
-                    echo "📨 Response: $BODY"
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/KfirErlich/microservice-template/generate \
+            -d "{\"owner\": \"KfirErlich\", \"name\": \"${{ env.SERVICE_NAME }}\", \"description\": \"${{ env.DESCRIPTION }}\", \"private\": false}"
 
-          if [ "$HTTP_CODE" != "201" ]; then
-            echo "❌ Failed to create repository (HTTP $HTTP_CODE)"
-            exit 1
-          fi
-          echo "✅ Repository created!"
-
-
-
-
-
-      # ── Log: Repo Created ──────────────────────────────────────
       - name: Log - Repo Created
         uses: port-labs/port-github-action@v1
         with:
@@ -82,31 +47,32 @@ jobs:
           clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
           operation: PATCH_RUN
           runId: ${{ env.PORT_RUN_ID }}
-          logMessage: "✅ Repository created: github.com/${{ env.GH_ORG }}/${{ env.SERVICE_NAME }}"
+          logMessage: "✅ Repository created: github.com/KfirErlich/${{ env.SERVICE_NAME }}"
           statusLabel: "Registering in Port..."
 
-      # ── Step 2: Register Entity in Port + Link to Cluster ──────
       - name: Register Microservice in Port
         uses: port-labs/port-github-action@v1
         with:
           clientId: ${{ secrets.PORT_CLIENT_ID }}
           clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
-          operation: UPSERT
+          operation: UPSERT_ENTITY
           runId: ${{ env.PORT_RUN_ID }}
           blueprint: microservice
           identifier: ${{ env.SERVICE_NAME }}
           title: ${{ env.SERVICE_NAME }}
-          properties: |
+          properties: |-
             {
               "language": "${{ env.LANGUAGE }}",
-              "github_url": "https://github.com/${{ env.GH_ORG }}/${{ env.SERVICE_NAME }}"
+              "description": "${{ env.DESCRIPTION }}",
+              "github_url": "https://github.com/KfirErlich/${{ env.SERVICE_NAME }}",
+              "owner": "${{ env.OWNER }}",
+              "on_call": "${{ env.ON_CALL_USER }}"
             }
-          relations: |
+          relations: |-
             {
               "k8s_cluster": "${{ env.CLUSTER_ID }}"
             }
 
-      # ── Log: Entity Linked ─────────────────────────────────────
       - name: Log - Entity Registered
         uses: port-labs/port-github-action@v1
         with:
@@ -114,10 +80,9 @@ jobs:
           clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
           operation: PATCH_RUN
           runId: ${{ env.PORT_RUN_ID }}
-          logMessage: "✅ Entity registered in Port and linked to cluster: ${{ env.CLUSTER_ID }}"
+          logMessage: "✅ Microservice registered in Port and linked to cluster: ${{ env.CLUSTER_ID }}"
           statusLabel: "Finalizing..."
 
-      # ── Step 3: Close the run as SUCCESS ──────────────────────
       - name: Complete Action Run
         uses: port-labs/port-github-action@v1
         with:
@@ -126,7 +91,7 @@ jobs:
           operation: PATCH_RUN
           runId: ${{ env.PORT_RUN_ID }}
           status: SUCCESS
-          statusLabel: "✅ Service live!"
-          summary: "${{ env.SERVICE_NAME }} created and linked to ${{ env.CLUSTER_ID }}"
-          link: '["https://github.com/${{ env.GH_ORG }}/${{ env.SERVICE_NAME }}"]'
-          logMessage: "🎉 All done! Repository is live and registered in the catalog."
+          statusLabel: "✅ Microservice live!"
+          summary: "${{ env.SERVICE_NAME }} created and linked to cluster ${{ env.CLUSTER_ID }}"
+          link: '["https://github.com/KfirErlich/${{ env.SERVICE_NAME }}"]'
+          logMessage: "🎉 All done! Service is live and visible in the Port catalog."
