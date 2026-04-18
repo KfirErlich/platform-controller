@@ -18,7 +18,7 @@ jobs:
       SERVICE_NAME: ${{ fromJson(inputs.port_payload).payload.properties.service_name }}
       LANGUAGE:     ${{ fromJson(inputs.port_payload).payload.properties.language }}
       CLUSTER_ID:   ${{ fromJson(inputs.port_payload).payload.properties.cluster }}
-      GH_ORG:       your-github-org
+      GH_ORG:       KfirErlich
 
     steps:
       # ── Log: Starting ─────────────────────────────────────────
