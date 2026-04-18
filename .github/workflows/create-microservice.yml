@@ -37,6 +37,14 @@ jobs:
           statusLabel: "Creating repository..."
 
       # ── Step 1: Create GitHub Repo from Template ───────────────
+
+      - name: Debug - Check Token Scopes
+        run: |
+          curl -s -I \
+            -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
+            https://api.github.com/user \
+            | grep -i "x-oauth-scopes"
+            
       - name: Create GitHub Repository
         run: |
           echo "🔍 Attempting to create repo: ${{ env.SERVICE_NAME }}"
@@ -59,6 +67,7 @@ jobs:
           fi
 
           echo "✅ Repository created successfully!"
+
 
 
 
