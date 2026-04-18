@@ -1,0 +1,105 @@
+# platform-controller/.github/workflows/create-microservice.yml
+
+name: Create Microservice
+
+on:
+  workflow_dispatch:
+    inputs:
+      port_payload:
+        required: true
+        type: string
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+
+    env:
+      PORT_RUN_ID:  ${{ fromJson(inputs.port_payload).context.runId }}
+      SERVICE_NAME: ${{ fromJson(inputs.port_payload).payload.properties.service_name }}
+      LANGUAGE:     ${{ fromJson(inputs.port_payload).payload.properties.language }}
+      CLUSTER_ID:   ${{ fromJson(inputs.port_payload).payload.properties.cluster }}
+      GH_ORG:       your-github-org
+
+    steps:
+      # ── Log: Starting ─────────────────────────────────────────
+      - name: Log - Start
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          operation: PATCH_RUN
+          runId: ${{ env.PORT_RUN_ID }}
+          logMessage: "🟡 Starting provisioning for service: ${{ env.SERVICE_NAME }}"
+          statusLabel: "Creating repository..."
+
+      # ── Step 1: Create GitHub Repo from Template ───────────────
+      - name: Create GitHub Repository
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ env.GH_ORG }}/microservice-template/generate \
+            -d '{
+              "owner": "${{ env.GH_ORG }}",
+              "name": "${{ env.SERVICE_NAME }}",
+              "description": "Microservice: ${{ env.SERVICE_NAME }}",
+              "private": false,
+              "include_all_branches": false
+            }'
+
+      # ── Log: Repo Created ──────────────────────────────────────
+      - name: Log - Repo Created
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          operation: PATCH_RUN
+          runId: ${{ env.PORT_RUN_ID }}
+          logMessage: "✅ Repository created: github.com/${{ env.GH_ORG }}/${{ env.SERVICE_NAME }}"
+          statusLabel: "Registering in Port..."
+
+      # ── Step 2: Register Entity in Port + Link to Cluster ──────
+      - name: Register Microservice in Port
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          operation: UPSERT_ENTITY
+          runId: ${{ env.PORT_RUN_ID }}
+          blueprint: microservice
+          identifier: ${{ env.SERVICE_NAME }}
+          title: ${{ env.SERVICE_NAME }}
+          properties: |
+            {
+              "language": "${{ env.LANGUAGE }}",
+              "repoUrl": "https://github.com/${{ env.GH_ORG }}/${{ env.SERVICE_NAME }}"
+            }
+          relations: |
+            {
+              "cluster": "${{ env.CLUSTER_ID }}"
+            }
+
+      # ── Log: Entity Linked ─────────────────────────────────────
+      - name: Log - Entity Registered
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          operation: PATCH_RUN
+          runId: ${{ env.PORT_RUN_ID }}
+          logMessage: "✅ Entity registered in Port and linked to cluster: ${{ env.CLUSTER_ID }}"
+          statusLabel: "Finalizing..."
+
+      # ── Step 3: Close the run as SUCCESS ──────────────────────
+      - name: Complete Action Run
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          operation: PATCH_RUN
+          runId: ${{ env.PORT_RUN_ID }}
+          status: SUCCESS
+          statusLabel: "✅ Service live!"
+          summary: "${{ env.SERVICE_NAME }} created and linked to ${{ env.CLUSTER_ID }}"
+          link: '["https://github.com/${{ env.GH_ORG }}/${{ env.SERVICE_NAME }}"]'
+          logMessage: "🎉 All done! Repository is live and registered in the catalog."
