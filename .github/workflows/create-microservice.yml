@@ -55,7 +55,7 @@ jobs:
         with:
           clientId: ${{ secrets.PORT_CLIENT_ID }}
           clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
-          operation: UPSERT_ENTITY
+          operation: UPSERT
           runId: ${{ env.PORT_RUN_ID }}
           blueprint: microservice
           identifier: ${{ env.SERVICE_NAME }}
