@@ -39,17 +39,28 @@ jobs:
       # ── Step 1: Create GitHub Repo from Template ───────────────
       - name: Create GitHub Repository
         run: |
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ env.GH_ORG }}/microservice-template/generate \
-            -d '{
-              "owner": "${{ env.GH_ORG }}",
-              "name": "${{ env.SERVICE_NAME }}",
-              "description": "Microservice: ${{ env.SERVICE_NAME }}",
-              "private": false,
-              "include_all_branches": false
-            }'
+          echo "🔍 Attempting to create repo: ${{ env.SERVICE_NAME }}"
+
+          RESPONSE=$(curl -s -w "
+          %{http_code}" -X POST \
+                      -H "Authorization: token ${{ secrets.GH_ADMIN_TOKEN }}" \
+                      -H "Accept: application/vnd.github.v3+json" \
+                      https://api.github.com/orgs/KfirErlich/repos \
+                      -d "{\"name\": \"${{ env.SERVICE_NAME }}\", \"description\": \"${{ env.DESCRIPTION }}\", \"private\": false, \"auto_init\": true}")
+          
+                    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+                    BODY=$(echo "$RESPONSE" | head -n-1)
+          
+                    echo "📨 HTTP Status: $HTTP_CODE"
+                    echo "📨 Response Body: $BODY"
+
+          if [ "$HTTP_CODE" != "201" ]; then
+            echo "❌ Failed to create GitHub repository (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+          echo "✅ Repository created successfully!"
+
 
       # ── Log: Repo Created ──────────────────────────────────────
       - name: Log - Repo Created
